@@ -1,5 +1,9 @@
-# Tensorlinos
+<div align="center">
+<h1>TensorLinos</h1>
+
 ![Logo](/images/logo.png)
+
+</div>
 
 ## :pencil: Description
 :construction: This is a work in progress :construction:
