@@ -24,7 +24,7 @@ int main(){
     my_linearModel.train(&my_linearModel, my_dataset, MSE);
     
     
-    
+    free(result);
     destroyModel(my_linearModel);
     destoryDataSet(my_dataset);
     return 0;
