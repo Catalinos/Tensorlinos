@@ -1,6 +1,7 @@
 #include<stdio.h>
 #include<stddef.h>
 #include<stdlib.h>
+#include<math.h>
 #include<time.h>
 #include"linreg.h"
 
@@ -15,12 +16,13 @@ LiniarModel initializeModel(int grade, enum ActivationFunction activation){
     liniar_model.weights = malloc(grade * sizeof(float));
 
     srand(time(0));
-    int upper = 400;
+    int upper = 100;
     int lower = 0;
     for(int i = 0; i < grade; i++){
-        liniar_model.weights[i] = (float)((rand() % (upper - lower + 1)) + lower); // Initialize each element to 1
+        liniar_model.weights[i] = (float)((rand() % (upper - lower + 1)) + lower);
+        // liniar_model.weights[i] = (float) rand();
     }
-    liniar_model.bias = (rand()%(upper-lower+1)) + lower;
+    liniar_model.bias = (float) ((rand()%(upper-lower+1)) + lower);
     liniar_model.train=train;
     return liniar_model;
 }
@@ -36,11 +38,20 @@ void showValuesW(const LiniarModel model){
     printf("With the activation function of: %s \n", ActivationFunctionName[model.activation]);
 }
 
+int getRandomInt(int lower, int upper){
+    return (int) ((rand()%(upper - lower + 1)) + lower);
+}
+
+float sigmoidf(float number){
+    return (1 / (1 + powf(EULER_NUMBER_F, -number)));
+}
+
 float computeMSE(const float *predicted, const DataSet dataset){
     float loss = 0;
     
     for(int i=0;i<dataset.dimension; ++i){
-        loss += predicted[i] - dataset.X[i][1];
+        float error = predicted[i] - dataset.X[i][1];
+        loss += pow(error,2);
     }
     loss /= 2*dataset.dimension;
 
@@ -73,19 +84,71 @@ float computeLoss(enum LossFunction losstype, const float *predicted, const Data
     return loss;
 }
 
-void train(LiniarModel *model, const DataSet dataset, enum LossFunction lossfunction){
+float *computeGradient(const DataSet dataset, float* predicted, float alpha, int grade, float *weights, float bias){
+    float *returned_values = calloc((grade+1), sizeof(float));
+    
+    for(int i=0;i<grade;++i){
+        returned_values[i] = weights[i];
+        float grad = 0;
+
+        for(int j = 0; j < dataset.dimension; ++j){
+            grad +=  (predicted[j] - dataset.X[j][1]) * dataset.X[j][0];
+        }
+
+        grad /= dataset.dimension;
+
+        returned_values[i] = weights[i] - (alpha * grad);
+
+    }
+    float bias_grad = 0;
+    for(int j = 0; j < dataset.dimension; ++j){
+        bias_grad +=  (predicted[j] - dataset.X[j][1]);
+    }
+    bias_grad /= dataset.dimension;
+    returned_values[grade] = bias - (alpha * bias_grad);
+    return returned_values;
+}
+
+
+void train(LiniarModel *model, const DataSet dataset, enum LossFunction lossfunction, float alpha, int epochs){
 
     int x_length = dataset.dimension;
     model->loss = lossfunction;
     float *result = calloc(x_length, sizeof(float));
-    for(int i = 0; i < x_length; ++i){
-        result[i] = 0;
-        for(int j=0;j<model->grade; ++j){
-            result[i] += model->weights[j] * dataset.X[i][0];
+    float best_loss = 0;
+    for(int steps=0;steps<epochs;++steps){
+
+        for(int i = 0; i < x_length; ++i){
+            result[i] = 0;
+            for(int j=0;j<model->grade; ++j){
+                result[i] = model->weights[j] * dataset.X[i][0];
+            }
         }
+        float loss = computeLoss(lossfunction, result, dataset);
+        // printf("Loss %s after first training is: %f\n", LossFunctionNAME[model->loss], loss);
+
+        float *new_weights = computeGradient(dataset, result, alpha, model->grade, model->weights, model->bias);
+
+        // printf("The new parameters are: ");
+        for(int i=0; i < model->grade; ++i){
+            model->weights[i] = new_weights[i];
+            // printf("%.2f*(x)^%d + ", new_weights[i], i);
+        }
+        model->bias = new_weights[model->grade];
+        // printf("%.2f\n", model->bias);
+
+        if(abs(best_loss-loss) < 1){
+            printf("-------------------------------------------\n");
+            printf("The model finished training afted %d steps with the loss of %s = %.3f\n", steps, LossFunctionNAME[model->loss], best_loss);
+            printf("-------------------------------------------\n");
+
+            break;
+        }
+        best_loss = loss;
+
     }
-    float loss = computeLoss(lossfunction, result, dataset);
-    printf("Loss %s after first training is: %f\n", LossFunctionNAME[model->loss], loss);
+
+    free(result);
 }
 
 float *predict(const LiniarModel model, const DataSet dataset){
@@ -103,6 +166,17 @@ float *predict(const LiniarModel model, const DataSet dataset){
     return result;
 }
 
+void compare5Samples(const DataSet dataset, float *result){
+    
+    printf("----------------------Comparison---------------------\n");
+
+    printf("Index \tTruth \t\tPredicted \tDifference\n");
+    for(int i = 0; i<5; ++i){
+        int index = getRandomInt(0, dataset.dimension);
+        float diff = dataset.X[index][1] - result[index];
+        printf("%d \t%.3f \t%.3f \t%.3f\n", index, dataset.X[index][1], result[index], diff);
+    }
+}
 
 void destroyModel(const LiniarModel model){
     free(model.weights);
@@ -152,7 +226,7 @@ void printRandomSample(const DataSet dataset){
 
 void destoryDataSet(DataSet dataset){
     
-    for (int i = 0; i < dataset.dimension-1; i++) {
+    for (int i = 0; i < dataset.dimension; i++) {
         free(dataset.X[i]);
     }
     free(dataset.X);

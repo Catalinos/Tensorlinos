@@ -23,7 +23,7 @@ create_obj:
 # Rule to compile the main program and link with the shared library
 compile: create_obj
 	@echo "Compiling the main program and linking with the shared library..."
-	@$(CC) -o $(TARGET_MAIN) $(TARGET_MAIN).o $(LDFLAGS)
+	@$(CC) -o $(TARGET_MAIN) $(TARGET_MAIN).o $(LDFLAGS) -lm
 
 # Rule to run the main program
 # Note: This temporarily sets LD_LIBRARY_PATH to ensure the shared library can be found at runtime
